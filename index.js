@@ -1,43 +1,25 @@
-const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
+import fetch from 'node-fetch';
 
-const app = express();
+export default async function handler(req, res) {
+  const { username } = req.query;
 
-app.get('/', async (req, res) => {
-  const username = req.query.username;
-  if (!username) return res.status(400).json({ error: 'Missing username' });
+  if (!username) {
+    return res.status(400).json({ status: false, error: 'Missing username parameter' });
+  }
 
   try {
-    const { data } = await axios.get(`https://www.instagram.com/${username}/`);
-    const $ = cheerio.load(data);
+    const response = await fetch(`https://api-ig-info-eternal.vercel.app/?username=${username}`);
+    const data = await response.json();
 
-    const scriptTag = $('script[type="text/javascript"]').filter((i, el) => {
-      return $(el).html().includes('window._sharedData');
-    }).first().html();
-
-    if (!scriptTag) return res.status(404).json({ error: 'User not found' });
-
-    const jsonString = scriptTag.match(/window\._sharedData\s?=\s?({.*});/)[1];
-    const jsonData = JSON.parse(jsonString);
-
-    const user = jsonData.entry_data.ProfilePage[0].graphql.user;
-
-    res.json({
-      username: user.username,
-      full_name: user.full_name,
-      biography: user.biography,
-      profile_pic_url: user.profile_pic_url_hd,
-      followers: user.edge_followed_by.count,
-      following: user.edge_follow.count,
-      posts: user.edge_owner_to_timeline_media.count,
-      is_private: user.is_private,
-      is_verified: user.is_verified,
-      credit: "TG:- @ITZ_ME_545"
+    return res.status(200).json({
+      ...data,
+      credit: "TG: @ITZ_ME_545"
     });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to fetch user data' });
+  } catch (err) {
+    return res.status(500).json({
+      status: false,
+      error: 'API request failed',
+      details: err.message
+    });
   }
-});
-
-module.exports = app;
+}
